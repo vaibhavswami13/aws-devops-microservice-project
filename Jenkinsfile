@@ -1,15 +1,19 @@
 pipeline {
-    agent any
+    agent { 
+        docker { 
+            image 'python:3.9-slim'  // runs the pipeline inside this container
+            args '-v /var/run/docker.sock:/var/run/docker.sock' 
+        }
+    }
     environment {
         IMAGE_NAME = "user-service"
     }
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/vaibhavswami13/aws-devops-microservice-project'
+                git branch: 'main', url: 'YOUR_GITHUB_REPO_URL'
             }
         }
-
         stage('Install & Test') {
             steps {
                 sh '''
@@ -17,18 +21,16 @@ pipeline {
                 source venv/bin/activate
                 pip install --upgrade pip
                 pip install -r requirements.txt
-                pytest --maxfail=1 --disable-warnings -q
+                pytest --maxfail=1 --disable-warnings -v
                 '''
             }
         }
-
-        stage('Build Docker Image') {
+        stage('Docker Build') {
             steps {
-                sh "docker build -t $IMAGE_NAME ."
+                sh 'docker build -t $IMAGE_NAME .'
             }
         }
-
-        stage('Run Docker Container') {
+        stage('Docker Run') {
             steps {
                 sh '''
                 docker stop $IMAGE_NAME || true
@@ -36,15 +38,6 @@ pipeline {
                 docker run -d -p 5000:5000 --name $IMAGE_NAME $IMAGE_NAME
                 '''
             }
-        }
-    }
-
-    post {
-        success {
-            echo "Docker container is running on port 5000!"
-        }
-        failure {
-            echo "Pipeline failed. Check the logs."
         }
     }
 }
